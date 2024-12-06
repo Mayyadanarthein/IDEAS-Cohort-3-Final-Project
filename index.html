@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>News Credibility Analyzer</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.0/chart.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body class="dark-mode">
+<!-- Navigation Bar -->
+<nav class="navbar">
+    <div class="nav-content">
+        <h1 class="nav-title">News Credibility Analyzer</h1>
+        <div class="nav-links">
+            <button class="nav-link active" data-page="analyzer">Analyzer</button>
+            <button class="nav-link" data-page="about">About</button>
+            <button id="theme-toggle" class="theme-toggle">
+                <span class="theme-icon">🌙</span>
+            </button>
+        </div>
+    </div>
+</nav>
+
+<!-- Main Content -->
+<main class="main-container">
+    <!-- Analyzer Page -->
+    <section id="analyzer-page" class="page active">
+        <div class="analyzer-container">
+            <div class="input-section">
+                <h2>News Analysis</h2>
+                <textarea
+                        id="news-input"
+                        placeholder="Paste news article here..."
+                        rows="8"
+                ></textarea>
+                <button id="analyze-btn" class="primary-btn">
+                    Analyze News
+                </button>
+            </div>
+
+            <div id="results-section" class="results-section hidden">
+                <div class="credibility-score">
+                    <h3>Credibility Score</h3>
+                    <div class="score-display">
+                        <span id="score-value">0</span>%
+                    </div>
+                </div>
+
+                <div class="charts-grid">
+                    <div class="chart-container">
+                        <h3>Subject Analysis</h3>
+                        <canvas id="subject-chart"></canvas>
+                    </div>
+                    <div class="chart-container">
+                        <h3>Sentiment Distribution</h3>
+                        <canvas id="sentiment-chart"></canvas>
+                    </div>
+                </div>
+
+                <div class="share-section">
+                    <button id="share-btn" class="secondary-btn">
+                        Share Results
+                    </button>
+                    <div id="share-menu" class="share-menu hidden">
+                        <button class="share-option" data-platform="twitter">
+                            Twitter
+                        </button>
+                        <button class="share-option" data-platform="facebook">
+                            Facebook
+                        </button>
+                        <button class="share-option" data-platform="copy">
+                            Copy Link
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- About Page -->
+    <section id="about-page" class="page">
+        <div class="about-container">
+            <h2>About The Project</h2>
+            <p class="project-description">
+                The News Credibility Analyzer uses advanced machine learning
+                to help users identify the credibility of news articles.
+                Our system analyzes various factors including content,
+                sentiment, and writing style to provide a comprehensive
+                assessment. Blah Blah
+            </p>
+
+            <h3>Our Team</h3>
+            <div class="team-grid">
+                <div class="team-member">
+                    <img src="images/member1.jpg" alt="May Yadanar Thein">
+                    <h4>May Yadanar Thein</h4>
+                    <p>Front End Developer</p>
+                    <div class="social-links">
+                        <a href="https://linkedin.com/in/mayyadanarthein2002/" target="_blank" aria-label="LinkedIn">
+                            <i class="fab fa-linkedin"></i>
+                        </a>
+                        <a href="https://github.com/yourgithub" target="_blank" aria-label="GitHub">
+                            <i class="fab fa-github"></i>
+                        </a>
+                        <a href="mailto:your.email@example.com" aria-label="Email">
+                            <i class="fas fa-envelope"></i>
+                        </a>
+                    </div>
+                </div>
+                <div class="team-member">
+                    <img src="images/member2.jpg" alt="Sevan Meroian">
+                    <h4>Sevan Meroian</h4>
+                    <p>ML Engineer</p>
+                    <div class="social-links">
+                        <a href="https://linkedin.com/in/sevan-meroian-8a982b30a/" target="_blank" aria-label="LinkedIn">
+                            <i class="fab fa-linkedin"></i>
+                        </a>
+                        <a href="https://github.com/" target="_blank" aria-label="GitHub">
+                            <i class="fab fa-github"></i>
+                        </a>
+                    </div>
+                </div>
+                <div class="team-member">
+                    <img src="images/member3.jpg" alt="Jake Pong">
+                    <h4>Jake Pong</h4>
+                    <p>Backend Developer</p>
+                    <div class="social-links">
+                        <a href="https://linkedin.com/in/jakepong/" target="_blank" aria-label="LinkedIn">
+                            <i class="fab fa-linkedin"></i>
+                        </a>
+                        <a href="https://github.com/" target="_blank" aria-label="GitHub">
+                            <i class="fab fa-github"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+    </section>
+</main>
+
+<script src="script.js"></script>
+</body>
+</html>

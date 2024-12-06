@@ -1,0 +1,252 @@
+:root {
+    /* Colors */
+    --primary: #3b82f6;
+    --primary-dark: #2563eb;
+    --bg-dark: #1e293b;
+    --bg-light: #ffffff;
+    --text-dark: #f8fafc;
+    --text-light: #1e293b;
+    --border-dark: #334155;
+    --border-light: #e2e8f0;
+    --card-dark: #334155;
+    --card-light: #f1f5f9;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    line-height: 1.5;
+    transition: background-color 0.3s, color 0.3s;
+}
+
+/* Theme Styles */
+body.dark-mode {
+    background-color: var(--bg-dark);
+    color: var(--text-dark);
+}
+
+body.light-mode {
+    background-color: var(--bg-light);
+    color: var(--text-light);
+}
+
+/* Navigation */
+.navbar {
+    padding: 1rem;
+    border-bottom: 1px solid var(--border-dark);
+}
+
+.nav-content {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.nav-links {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+}
+
+.nav-link {
+    background: none;
+    border: none;
+    color: inherit;
+    cursor: pointer;
+    padding: 0.5rem 1rem;
+    border-radius: 0.375rem;
+    font-size: 1rem;
+}
+
+.nav-link.active {
+    background-color: var(--primary);
+    color: white;
+}
+
+/* Main Container */
+.main-container {
+    max-width: 1200px;
+    margin: 2rem auto;
+    padding: 0 1rem;
+}
+
+/* Page Sections */
+.page {
+    display: none;
+}
+
+.page.active {
+    display: block;
+}
+
+/* Analyzer Section */
+.analyzer-container {
+    background-color: var(--card-dark);
+    border-radius: 0.5rem;
+    padding: 1.5rem;
+}
+
+.input-section {
+    margin-bottom: 2rem;
+}
+
+textarea {
+    width: 100%;
+    padding: 1rem;
+    margin: 1rem 0;
+    border-radius: 0.375rem;
+    background-color: rgba(255, 255, 255, 0.1);
+    border: 1px solid var(--border-dark);
+    color: inherit;
+    font-size: 1rem;
+    resize: vertical;
+}
+
+/* Buttons */
+.primary-btn {
+    background-color: var(--primary);
+    color: white;
+    padding: 0.75rem 1.5rem;
+    border: none;
+    border-radius: 0.375rem;
+    cursor: pointer;
+    font-size: 1rem;
+    font-weight: 500;
+}
+
+.primary-btn:hover {
+    background-color: var(--primary-dark);
+}
+
+/* Results Section */
+.results-section {
+    margin-top: 2rem;
+}
+
+.credibility-score {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.score-display {
+    font-size: 3rem;
+    font-weight: bold;
+    color: var(--primary);
+}
+
+.charts-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 2rem;
+    margin-bottom: 2rem;
+}
+
+.chart-container {
+    background-color: rgba(255, 255, 255, 0.05);
+    padding: 1rem;
+    border-radius: 0.5rem;
+}
+
+/* Share Section */
+.share-section {
+    text-align: center;
+}
+
+.share-menu {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: center;
+    margin-top: 1rem;
+}
+
+/* About Page */
+.about-container {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.team-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 2rem;
+    margin-top: 2rem;
+}
+
+.team-member {
+    text-align: center;
+    padding: 1.5rem;
+    background-color: var(--card-dark);
+    border-radius: 0.5rem;
+}
+
+.team-member img {
+    width: 150px;
+    height: 150px;
+    border-radius: 50%;
+    margin-bottom: 1rem;
+}
+
+.linkedin-link {
+    color: var(--primary);
+    text-decoration: none;
+}
+
+.hidden {
+    display: none !important;
+}
+
+.social-links {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    margin-top: 1rem;
+}
+
+.social-links a {
+    color: var(--text-dark);
+    font-size: 1.5rem;
+    transition: color 0.3s ease;
+}
+
+.social-links a:hover {
+    color: var(--primary);
+}
+
+/* Update team member styles */
+.team-member {
+    text-align: center;
+    padding: 2rem;
+    background-color: var(--card-dark);
+    border-radius: 1rem;
+    transition: transform 0.3s ease;
+}
+
+.team-member:hover {
+    transform: translateY(-5px);
+}
+
+.team-member img {
+    width: 150px;
+    height: 150px;
+    border-radius: 50%;
+    margin-bottom: 1rem;
+    object-fit: cover;
+}
+
+.team-member h4 {
+    margin: 0.5rem 0;
+    color: var(--text-dark);
+}
+
+.team-member p {
+    color: var(--text-dark);
+    opacity: 0.8;
+    margin-bottom: 1rem;
+}
