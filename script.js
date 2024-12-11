@@ -1,3 +1,7 @@
+// Model and charts variables
+let model = null;
+let charts = {};
+
 // DOM Elements
 const elements = {
     themeToggle: document.getElementById('theme-toggle'),
@@ -14,53 +18,38 @@ const elements = {
     }
 };
 
-// Charts configuration
-let charts = {
-    subject: null,
-    sentiment: null
-};
-
-// Theme handling
-function initializeTheme() {
-    const isDarkMode = localStorage.getItem('darkMode') !== 'false';
-    document.body.classList.toggle('dark-mode', isDarkMode);
-    document.body.classList.toggle('light-mode', !isDarkMode);
-    updateThemeIcon(isDarkMode);
+// Initialize TensorFlow.js model
+async function loadModel() {
+    try {
+        model = await tf.loadLayersModel('model.json');
+        elements.analyzeBtn.disabled = false;
+    } catch (error) {
+        console.error('Error loading model:', error);
+        showError('Failed to load model. Please refresh the page.');
+    }
 }
 
-function toggleTheme() {
-    const isDarkMode = document.body.classList.toggle('dark-mode');
-    document.body.classList.toggle('light-mode', !isDarkMode);
-    localStorage.setItem('darkMode', isDarkMode);
-    updateThemeIcon(isDarkMode);
-    updateChartsTheme();
+// Preprocess text for model input
+function preprocessText(text) {
+    // Convert to lowercase
+    text = text.toLowerCase();
+
+    // Remove special characters and extra spaces
+    text = text.replace(/[^\w\s]/g, '');
+    text = text.replace(/\s+/g, ' ').trim();
+
+    // Create a fixed-size input vector (100 dimensions)
+    const words = text.split(' ');
+    const inputVector = new Array(100).fill(0);
+
+    for (let i = 0; i < Math.min(words.length, 100); i++) {
+        inputVector[i] = 1; // Replace with actual word embedding/encoding
+    }
+
+    return tf.tensor2d([inputVector]);
 }
 
-function updateThemeIcon(isDarkMode) {
-    elements.themeToggle.querySelector('.theme-icon').textContent = isDarkMode ? '🌙' : '☀️';
-}
-
-// Navigation handling
-function initializeNavigation() {
-    elements.navLinks.forEach(link => {
-        link.addEventListener('click', () => {
-            const targetPage = link.dataset.page;
-            switchPage(targetPage);
-        });
-    });
-}
-
-function switchPage(targetPage) {
-    elements.navLinks.forEach(link => {
-        link.classList.toggle('active', link.dataset.page === targetPage);
-    });
-
-    Object.entries(elements.pages).forEach(([page, element]) => {
-        element.classList.toggle('active', page === targetPage);
-    });
-}
-
-// Charts handling
+// Initialize charts with theme support
 function initializeCharts() {
     const isDarkMode = document.body.classList.contains('dark-mode');
     const textColor = isDarkMode ? '#f8fafc' : '#1e293b';
@@ -72,8 +61,7 @@ function initializeCharts() {
             datasets: [{
                 label: 'Subject Distribution',
                 data: [0, 0, 0, 0],
-                backgroundColor: '#3b82f6',
-                borderRadius: 4
+                backgroundColor: '#3b82f6'
             }]
         },
         options: {
@@ -116,25 +104,22 @@ function initializeCharts() {
     });
 }
 
+// Update charts theme
 function updateChartsTheme() {
     const isDarkMode = document.body.classList.contains('dark-mode');
     const textColor = isDarkMode ? '#f8fafc' : '#1e293b';
 
     Object.values(charts).forEach(chart => {
-        if (chart) {
-            // Update axes colors
-            if (chart.config.type === 'bar') {
-                chart.options.scales.x.ticks.color = textColor;
-                chart.options.scales.y.ticks.color = textColor;
-            }
-            // Update legend colors
-            chart.options.plugins.legend.labels.color = textColor;
-            chart.update();
+        if (chart.config.type === 'bar') {
+            chart.options.scales.x.ticks.color = textColor;
+            chart.options.scales.y.ticks.color = textColor;
         }
+        chart.options.plugins.legend.labels.color = textColor;
+        chart.update();
     });
 }
 
-// Analysis handling
+// Analyze news function
 async function analyzeNews() {
     const text = elements.newsInput.value.trim();
     if (!text) {
@@ -146,27 +131,28 @@ async function analyzeNews() {
         elements.analyzeBtn.disabled = true;
         elements.analyzeBtn.textContent = 'Analyzing...';
 
-        const response = await fetch('http://localhost:5000/analyze', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text })
+        // Preprocess and predict
+        const inputTensor = preprocessText(text);
+        const prediction = await model.predict(inputTensor).data();
+        const credibilityScore = prediction[0];
+
+        // Display results
+        displayResults({
+            credibility_score: credibilityScore,
+            subject_distribution: [0.3, 0.2, 0.3, 0.2], // Update with actual analysis
+            sentiment_distribution: [0.4, 0.3, 0.3] // Update with actual analysis
         });
 
-        if (!response.ok) {
-            throw new Error('Analysis failed');
-        }
-
-        const data = await response.json();
-        displayResults(data);
     } catch (error) {
-        showError('Failed to analyze text. Please try again.');
         console.error('Analysis error:', error);
+        showError('Failed to analyze text. Please try again.');
     } finally {
         elements.analyzeBtn.disabled = false;
         elements.analyzeBtn.textContent = 'Analyze News';
     }
 }
 
+// Display results function
 function displayResults(data) {
     elements.resultsSection.classList.remove('hidden');
     elements.scoreValue.textContent = (data.credibility_score * 100).toFixed(1);
@@ -180,6 +166,47 @@ function displayResults(data) {
 
     // Scroll to results
     elements.resultsSection.scrollIntoView({ behavior: 'smooth' });
+}
+
+// Theme handling
+function initializeTheme() {
+    const isDarkMode = localStorage.getItem('darkMode') !== 'false';
+    document.body.classList.toggle('dark-mode', isDarkMode);
+    document.body.classList.toggle('light-mode', !isDarkMode);
+    updateThemeIcon(isDarkMode);
+    updateChartsTheme();
+}
+
+function toggleTheme() {
+    const isDarkMode = document.body.classList.toggle('dark-mode');
+    document.body.classList.toggle('light-mode', !isDarkMode);
+    localStorage.setItem('darkMode', isDarkMode);
+    updateThemeIcon(isDarkMode);
+    updateChartsTheme();
+}
+
+function updateThemeIcon(isDarkMode) {
+    elements.themeToggle.querySelector('.theme-icon').textContent = isDarkMode ? '🌙' : '☀️';
+}
+
+// Navigation handling
+function initializeNavigation() {
+    elements.navLinks.forEach(link => {
+        link.addEventListener('click', () => {
+            const targetPage = link.dataset.page;
+            switchPage(targetPage);
+        });
+    });
+}
+
+function switchPage(targetPage) {
+    elements.navLinks.forEach(link => {
+        link.classList.toggle('active', link.dataset.page === targetPage);
+    });
+
+    Object.entries(elements.pages).forEach(([page, element]) => {
+        element.classList.toggle('active', page === targetPage);
+    });
 }
 
 // Share functionality
@@ -214,19 +241,32 @@ function shareResults(platform) {
     elements.shareMenu.classList.add('hidden');
 }
 
-// Error handling
+// Error and message handling
 function showError(message) {
-    //Implement a proper error notification system here later
-    alert(message);
+    const errorDiv = document.createElement('div');
+    errorDiv.className = 'error-message';
+    errorDiv.textContent = message;
+    document.querySelector('.analyzer-container').appendChild(errorDiv);
+
+    setTimeout(() => {
+        errorDiv.remove();
+    }, 3000);
 }
 
 function showMessage(message) {
-    //Implement a proper notification system here later
-    alert(message);
+    const messageDiv = document.createElement('div');
+    messageDiv.className = 'success-message';
+    messageDiv.textContent = message;
+    document.querySelector('.analyzer-container').appendChild(messageDiv);
+
+    setTimeout(() => {
+        messageDiv.remove();
+    }, 3000);
 }
 
-// Initialize everything
+// Initialize everything when the page loads
 document.addEventListener('DOMContentLoaded', () => {
+    loadModel();
     initializeTheme();
     initializeNavigation();
     initializeCharts();
@@ -235,69 +275,3 @@ document.addEventListener('DOMContentLoaded', () => {
     elements.themeToggle.addEventListener('click', toggleTheme);
     elements.analyzeBtn.addEventListener('click', analyzeNews);
 });
-
-async function analyzeNews() {
-    const text = elements.newsInput.value.trim();
-    if (!text) {
-        showError('Please enter some text to analyze');
-        return;
-    }
-
-    try {
-        elements.analyzeBtn.disabled = true;
-        elements.analyzeBtn.textContent = 'Analyzing...';
-
-        const response = await fetch('http://localhost:5000/analyze', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json'
-            },
-            body: JSON.stringify({ text })
-        });
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const data = await response.json();
-        if (data.success) {
-            displayResults(data);
-        } else {
-            throw new Error(data.error || 'Analysis failed');
-        }
-    } catch (error) {
-        console.error('Analysis error:', error);
-        showError('Failed to analyze text. Please make sure the server is running.');
-    } finally {
-        elements.analyzeBtn.disabled = false;
-        elements.analyzeBtn.textContent = 'Analyze News';
-    }
-}
-
-function showError(message) {
-    // Create and show error message
-    const errorDiv = document.createElement('div');
-    errorDiv.className = 'error-message';
-    errorDiv.textContent = message;
-    document.querySelector('.analyzer-container').appendChild(errorDiv);
-    
-    // Remove after 3 seconds
-    setTimeout(() => {
-        errorDiv.remove();
-    }, 3000);
-}
-
-// CSS for error messages
-const style = document.createElement('style');
-style.textContent = `
-    .error-message {
-        background-color: #ef4444;
-        color: white;
-        padding: 1rem;
-        border-radius: 0.5rem;
-        margin-top: 1rem;
-        text-align: center;
-    }
-`;
-document.head.appendChild(style);
