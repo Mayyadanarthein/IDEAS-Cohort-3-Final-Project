@@ -170,7 +170,6 @@ async function analyzeNews() {
         console.error('Analysis error:', error);
         showError(error.message);
     } finally {
-        //Rest button state
         elements.analyzeBtn.disabled = false;
         elements.analyzeBtn.textContent = 'Analyze News';
     }
@@ -178,9 +177,7 @@ async function analyzeNews() {
 
 // Helper function to calculate subject scores
 function calculateSubjectScore(text, keywords) {
-    //Count how many keywords from the category appear in the text
     const matches = keywords.filter(keyword => text.includes(keyword)).length;
-    //Return a score between 0 & 1
     return matches / keywords.length;
 }
 
@@ -188,7 +185,7 @@ function calculateSubjectScore(text, keywords) {
 function calculateSentimentDistribution(text) {
     const positiveWords = ['good', 'great', 'excellent', 'positive', 'success', 'beneficial', 'improvement'];
     const negativeWords = ['bad', 'poor', 'negative', 'failure', 'wrong', 'problem', 'crisis'];
-
+    
     const words = text.split(' ');
     const positiveCount = words.filter(word => positiveWords.some(pos => word.includes(pos))).length;
     const negativeCount = words.filter(word => negativeWords.some(neg => word.includes(neg))).length;
@@ -320,12 +317,12 @@ document.addEventListener('DOMContentLoaded', () => {
     // Event listeners
     elements.themeToggle.addEventListener('click', toggleTheme);
     elements.analyzeBtn.addEventListener('click', analyzeNews);
-
+    
     // Initialize navigation
     elements.navLinks.forEach(link => {
         link.addEventListener('click', () => switchPage(link.dataset.page));
     });
-
+    
     // Initialize sharing
     if (elements.shareBtn) {
         elements.shareBtn.addEventListener('click', () => elements.shareMenu.classList.toggle('hidden'));
