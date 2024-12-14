@@ -250,3 +250,49 @@ textarea {
     opacity: 0.8;
     margin-bottom: 1rem;
 }
+
+
+/* Update social links styling */
+.social-links {
+    display: flex;
+    gap: 1.5rem;
+    justify-content: center;
+    margin-top: 1rem;
+}
+
+.social-links a {
+    color: var(--text-dark);
+    font-size: 1.5rem;
+    transition: all 0.3s ease;
+}
+
+/* Social icon specific colors on hover */
+.social-links a:hover .fa-linkedin {
+    color: #0077b5;
+}
+
+.social-links a:hover .fa-github {
+    color: #fff;
+}
+
+.social-links a:hover .fa-envelope {
+    color: #ea4335;
+}
+
+.social-links a:hover .fa-globe {
+    color: #2ecc71;
+}
+
+/* Keep existing team member styles */
+.team-member {
+    text-align: center;
+    padding: 2rem;
+    background-color: var(--card-dark);
+    border-radius: 1rem;
+    transition: transform 0.3s ease;
+}
+
+.team-member:hover {
+    transform: translateY(-5px);
+}
+
