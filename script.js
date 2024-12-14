@@ -72,8 +72,51 @@ function preprocessText(text) {
 
     return tf.tensor2d([inputVector]);
 }
+// Helper functions for analysis
+function calculateWordCount(text) {
+    return text.toLowerCase().split(/\s+/).filter(word => word.length > 0).length;
+}
 
-// News analysis function
+function calculateSentiment(text) {
+    // Simple sentiment analysis based on word patterns
+    const positiveWords = ['success', 'good', 'great', 'win', 'winning', 'support', 'backed', 'free', 'freed', 'help'];
+    const negativeWords = ['fake', 'false', 'wrong', 'trapped', 'demands', 'against', 'failed', 'attack', 'conflict'];
+
+    const words = text.toLowerCase().split(/\s+/);
+    let sentiment = 0;
+
+    words.forEach(word => {
+        if (positiveWords.includes(word)) sentiment += 1;
+        if (negativeWords.includes(word)) sentiment -= 1;
+    });
+
+    return sentiment / words.length; // Normalize by text length
+}
+
+function analyzeSubject(text) {
+    const subjects = {
+        politics: ['trump', 'gop', 'democrat', 'senator', 'election', 'candidate', 'vote', 'political'],
+        world: ['syria', 'france', 'islamic', 'international', 'foreign', 'global', 'world'],
+        technology: ['tech', 'cyber', 'digital', 'internet', 'software', 'online', 'AI'],
+        health: ['health', 'medical', 'disease', 'treatment', 'doctor', 'hospital', 'vaccine']
+    };
+
+    const words = text.toLowerCase().split(/\s+/);
+    let counts = { politics: 0, world: 0, technology: 0, health: 0 };
+
+    words.forEach(word => {
+        for (let [subject, keywords] of Object.entries(subjects)) {
+            if (keywords.some(keyword => word.includes(keyword))) {
+                counts[subject]++;
+            }
+        }
+    });
+
+    // Convert to percentages
+    const total = Object.values(counts).reduce((a, b) => a + b, 0) || 1;
+    return Object.values(counts).map(count => count / total);
+}
+
 async function analyzeNews() {
     const text = elements.newsInput.value.trim();
     if (!text) {
@@ -85,40 +128,58 @@ async function analyzeNews() {
         elements.analyzeBtn.disabled = true;
         elements.analyzeBtn.textContent = 'Analyzing...';
 
-        let results;
-        if (model && isModelLoaded) {
-            // Use actual model
-            const inputTensor = preprocessText(text);
-            const predictions = await model.predict(inputTensor).data();
+        // Calculate various metrics
+        const wordCount = calculateWordCount(text);
+        const sentiment = calculateSentiment(text);
+        const subjectDist = analyzeSubject(text);
 
-            results = {
-                credibility_score: predictions[0],
-                subject_distribution: [
-                    predictions[1] || 0.3,
-                    predictions[2] || 0.2,
-                    predictions[3] || 0.25,
-                    predictions[4] || 0.25
-                ],
-                sentiment_distribution: [
-                    predictions[5] || 0.4,
-                    predictions[6] || 0.3,
-                    predictions[7] || 0.3
-                ]
-            };
+        // Credibility factors
+        let credibilityScore = 0.5; // Base score
 
-            tf.dispose(inputTensor);
-        } else {
-            // Fallback analysis based on basic text features
-            results = performFallbackAnalysis(text);
-        }
+        // Word count factor (penalize very short or very long articles)
+        const idealLength = 500;
+        const lengthFactor = Math.min(1, Math.exp(-Math.pow(wordCount - idealLength, 2) / 200000));
+        credibilityScore += lengthFactor * 0.2;
 
-        displayResults(results);
+        // Sentiment factor (extreme sentiment might indicate bias)
+        const sentimentFactor = 1 - Math.abs(sentiment);
+        credibilityScore += sentimentFactor * 0.2;
+
+        // Subject clarity factor (clear topic focus might indicate legitimacy)
+        const maxSubject = Math.max(...subjectDist);
+        credibilityScore += maxSubject * 0.1;
+
+        // Caps lock and punctuation analysis
+        const capsRatio = (text.match(/[A-Z]/g) || []).length / text.length;
+        if (capsRatio > 0.3) credibilityScore -= 0.1;
+
+        // Excessive punctuation check
+        const exclamationRatio = (text.match(/!/g) || []).length / text.length;
+        if (exclamationRatio > 0.01) credibilityScore -= 0.1;
+
+        // Ensure score is between 0 and 1
+        credibilityScore = Math.max(0, Math.min(1, credibilityScore));
+
+        // Calculate sentiment distribution
+        const sentimentDist = [
+            Math.max(0, sentiment), // Positive
+            1 - Math.abs(sentiment), // Neutral
+            Math.max(0, -sentiment)  // Negative
+        ].map(v => Math.abs(v));
+
+        // Normalize sentiment distribution
+        const sentimentSum = sentimentDist.reduce((a, b) => a + b, 0);
+        const normalizedSentiment = sentimentDist.map(v => v / sentimentSum);
+
+        displayResults({
+            credibility_score: credibilityScore,
+            subject_distribution: subjectDist,
+            sentiment_distribution: normalizedSentiment
+        });
 
     } catch (error) {
         console.error('Analysis error:', error);
-        showError('Analysis error occurred. Using fallback analysis.');
-        const fallbackResults = performFallbackAnalysis(text);
-        displayResults(fallbackResults);
+        showError('Analysis error occurred. Please try again.');
     } finally {
         elements.analyzeBtn.disabled = false;
         elements.analyzeBtn.textContent = 'Analyze News';
