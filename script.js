@@ -26,13 +26,16 @@ async function loadModel() {
             throw new Error('TensorFlow.js not loaded');
         }
 
+        // AWS S3 URLs
         const modelUrl = 'https://model-backet.s3.us-east-2.amazonaws.com/model.json';
+
+        // Load the model
         model = await tf.loadLayersModel(modelUrl);
         console.log('Model loaded successfully');
         model.summary();
 
         elements.analyzeBtn.disabled = false;
-        showMessage('Model loaded successfully! Ready to analyze news.');
+        showMessage('Ready to analyze!');
     } catch (error) {
         console.error('Error loading model:', error);
         showError('Model loading failed. Please refresh and try again.');
@@ -58,8 +61,8 @@ function preprocessText(text) {
             inputVector[i] = 1;
         }
 
-        // Create and return tensor with shape [1, 100]
-        return tf.tensor2d([inputVector], [1, 100]);
+        // Create and return tensor
+        return tf.tensor2d([inputVector]);
     } catch (error) {
         console.error('Preprocessing error:', error);
         throw new Error('Text preprocessing failed');
@@ -144,17 +147,19 @@ async function analyzeNews() {
         const credibilityScore = prediction[0];
         console.log('Prediction result:', credibilityScore);
 
-        // Generate subject distribution based on text content
-        const textLower = text.toLowerCase();
+        // Generate mock distributions based on credibility score
         const subjectDist = [
-            calculateSubjectScore(textLower, ['politics', 'government', 'president', 'policy']),
-            calculateSubjectScore(textLower, ['technology', 'digital', 'software', 'tech']),
-            calculateSubjectScore(textLower, ['science', 'research', 'study', 'scientific']),
-            calculateSubjectScore(textLower, ['entertainment', 'movie', 'music', 'celebrity'])
-        ];
+            0.3 + (Math.random() * 0.2),
+            0.2 + (Math.random() * 0.2),
+            0.25 + (Math.random() * 0.2),
+            0.25 + (Math.random() * 0.2)
+        ].map(v => v * credibilityScore);
 
-        // Generate sentiment distribution
-        const sentimentDist = calculateSentimentDistribution(textLower);
+        const sentimentDist = [
+            0.4 + (Math.random() * 0.2),
+            0.3 + (Math.random() * 0.2),
+            0.3 + (Math.random() * 0.2)
+        ].map(v => v * credibilityScore);
 
         // Display results
         displayResults({
@@ -173,30 +178,6 @@ async function analyzeNews() {
         elements.analyzeBtn.disabled = false;
         elements.analyzeBtn.textContent = 'Analyze News';
     }
-}
-
-// Helper function to calculate subject scores
-function calculateSubjectScore(text, keywords) {
-    const matches = keywords.filter(keyword => text.includes(keyword)).length;
-    return matches / keywords.length;
-}
-
-// Helper function to calculate sentiment distribution
-function calculateSentimentDistribution(text) {
-    const positiveWords = ['good', 'great', 'excellent', 'positive', 'success', 'beneficial', 'improvement'];
-    const negativeWords = ['bad', 'poor', 'negative', 'failure', 'wrong', 'problem', 'crisis'];
-    
-    const words = text.split(' ');
-    const positiveCount = words.filter(word => positiveWords.some(pos => word.includes(pos))).length;
-    const negativeCount = words.filter(word => negativeWords.some(neg => word.includes(neg))).length;
-    const neutralCount = words.length - positiveCount - negativeCount;
-
-    const total = words.length || 1; // Avoid division by zero
-    return [
-        positiveCount / total,
-        neutralCount / total,
-        negativeCount / total
-    ];
 }
 
 // Display results
@@ -238,7 +219,7 @@ function toggleTheme() {
 }
 
 function updateThemeIcon(isDarkMode) {
-    elements.themeToggle.textContent = isDarkMode ? '🌙' : '☀️';
+    elements.themeToggle.querySelector('.theme-icon').textContent = isDarkMode ? '🌙' : '☀️';
 }
 
 function updateChartsTheme() {
@@ -256,6 +237,15 @@ function updateChartsTheme() {
 }
 
 // Navigation handling
+function initializeNavigation() {
+    elements.navLinks.forEach(link => {
+        link.addEventListener('click', () => {
+            const targetPage = link.dataset.page;
+            switchPage(targetPage);
+        });
+    });
+}
+
 function switchPage(targetPage) {
     elements.navLinks.forEach(link => {
         link.classList.toggle('active', link.dataset.page === targetPage);
@@ -267,6 +257,16 @@ function switchPage(targetPage) {
 }
 
 // Share functionality
+function initializeSharing() {
+    elements.shareBtn.addEventListener('click', () => {
+        elements.shareMenu.classList.toggle('hidden');
+    });
+
+    document.querySelectorAll('.share-option').forEach(button => {
+        button.addEventListener('click', () => shareResults(button.dataset.platform));
+    });
+}
+
 function shareResults(platform) {
     const url = window.location.href;
     const text = `Check out this news analysis! Credibility Score: ${elements.scoreValue.textContent}%`;
@@ -312,22 +312,23 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log('Initializing application...');
     loadModel();
     initializeTheme();
+    initializeNavigation();
     initializeCharts();
+    initializeSharing();
 
-    // Event listeners
     elements.themeToggle.addEventListener('click', toggleTheme);
     elements.analyzeBtn.addEventListener('click', analyzeNews);
-    
-    // Initialize navigation
-    elements.navLinks.forEach(link => {
-        link.addEventListener('click', () => switchPage(link.dataset.page));
-    });
-    
-    // Initialize sharing
-    if (elements.shareBtn) {
-        elements.shareBtn.addEventListener('click', () => elements.shareMenu.classList.toggle('hidden'));
-        document.querySelectorAll('.share-option').forEach(button => {
-            button.addEventListener('click', () => shareResults(button.dataset.platform));
-        });
-    }
 });
+
+//fetch from awss3
+async function loadModel() {
+    try {
+        const modelUrl = 'https://your-bucket-name.s3.your-region.amazonaws.com/model.json';
+        model = await tf.loadLayersModel(modelUrl);
+        console.log('Model loaded successfully');
+    } catch (error) {
+        console.error('Error loading model:', error);
+        showError('Error loading the analysis model. Please try again later.');
+    }
+}
+
