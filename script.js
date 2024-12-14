@@ -1,4 +1,4 @@
-// Global variables
+// Global variables for holding the model, charts, and loading state
 let model = null;
 let charts = {};
 let isModelLoaded = false;
@@ -19,104 +19,309 @@ const elements = {
     }
 };
 
-// AWS S3 Configuration
-const AWS_CONFIG = {
-    modelUrl: 'https://model-backet.s3.us-east-2.amazonaws.com/model.json',
-    weightsUrl: 'https://model-backet.s3.us-east-2.amazonaws.com/weights.bin'
+// Keywords and Patterns for Analysis
+const SUBJECT_KEYWORDS = {
+    politicsNews: [
+        'trump', 'biden', 'election', 'vote', 'democrat', 'republican', 'senate',
+        'congress', 'government', 'political', 'campaign', 'candidate', 'russia',
+        'washington', 'president', 'legislation', 'conservative', 'liberal', 'korea',
+        'parliament', 'minister', 'politics', 'policy', 'politician'
+    ],
+    worldNews: [
+        'international', 'foreign', 'global', 'world', 'country',
+        'nation', 'diplomatic', 'overseas', 'abroad', 'regional',
+        'military', 'war', 'treaty', 'alliance', 'foreign policy',
+        'UN', 'NATO', 'EU', 'summit', 'international', 'diplomatic'
+    ],
+    news: [
+        'report', 'announced', 'statement', 'press', 'official',
+        'investigation', 'development', 'update', 'current events',
+        'breaking', 'latest', 'today', 'reports', 'coverage'
+    ],
+    healthNews: [
+        'medical', 'healthcare', 'disease', 'treatment', 'wellness',
+        'medicine', 'pandemic', 'doctors', 'hospital', 'research',
+        'health', 'vaccine', 'patients', 'clinical', 'diagnosis',
+        'symptoms', 'medical research', 'public health', 'therapy'
+    ],
+    economyNews: [
+        'market', 'finance', 'business', 'stocks', 'trade',
+        'inflation', 'banking', 'investment', 'GDP', 'economic',
+        'economy', 'financial', 'recession', 'interest rates',
+        'corporate', 'wall street', 'fiscal', 'monetary policy'
+    ]
 };
 
-// Model Loading
-async function loadModel() {
-    try {
-        console.log('Loading model from AWS S3...');
-        model = await tf.loadLayersModel(AWS_CONFIG.modelUrl);
+const CREDIBILITY_PATTERNS = {
+    high: [
+        'washington (reuters)',
+        '(reuters)',
+        'according to',
+        'officials said',
+        'sources confirmed',
+        'experts say',
+        'studies show',
+        'research indicates'
+    ],
+    low: [
+        'shocking',
+        'you won\'t believe',
+        'mind-blowing',
+        'conspiracy',
+        'controversial',
+        'secret',
+        'exposed',
+        'anonymous sources claim'
+    ]
+};
 
-        // Load weights if separate
-        const weightsResponse = await fetch(AWS_CONFIG.weightsUrl);
-        if (weightsResponse.ok) {
-            const weightsArrayBuffer = await weightsResponse.arrayBuffer();
-            const weights = new Float32Array(weightsArrayBuffer);
-            await model.loadWeights(weights);
-        }
+const SENTIMENT_DICTIONARY = {
+    positive: [
+        // Official/Credible indicators
+        'confirmed', 'announced', 'reported', 'stated', 'according to', 'officials say',
+        'reuters', 'associated press', 'ap news', 'official', 'report', 'study',
+        'research', 'evidence', 'experts', 'analysis', 'data', 'survey',
+        'progress', 'success', 'achievement', 'improvement', 'growth', 'development'
+    ],
+    negative: [
+        // Sensationalist and negative terms
+        'shocking', 'disturbing', 'embarrassing', 'horrible', 'terrible',
+        'outrageous', 'unbelievable', 'scandal', 'exposed', 'secret',
+        'conspiracy', 'controversial', 'refuses', 'slams', 'disaster',
+        'crisis', 'conflict', 'fail', 'failure', 'threat', 'danger'
+    ],
+    neutral: [
+        // Factual reporting terms
+        'says', 'said', 'announced', 'reported', 'stated', 'explained',
+        'described', 'noted', 'mentioned', 'indicated', 'discussed',
+        'today', 'yesterday', 'this week', 'this month', 'currently'
+    ]
+};
 
-        console.log('Model loaded successfully');
-        isModelLoaded = true;
-        elements.analyzeBtn.disabled = false;
-        showMessage('Ready to analyze news!');
-    } catch (error) {
-        console.error('Model loading error:', error);
-        showError('Unable to load analysis model. Using fallback analysis.');
-        // Enable button anyway to use fallback analysis
-        elements.analyzeBtn.disabled = false;
-    }
-}
-
-// Text preprocessing
-function preprocessText(text) {
-    // Basic text cleaning
-    text = text.toLowerCase();
-    text = text.replace(/[^\w\s]/g, '');
-    text = text.replace(/\s+/g, ' ').trim();
-
-    // Convert to word array
-    const words = text.split(' ');
-
-    // Create fixed-size input vector (100 dimensions)
-    const maxLength = 100;
-    const inputVector = new Array(maxLength).fill(0);
-
-    // Fill vector with word information
-    words.slice(0, maxLength).forEach((_, index) => {
-        inputVector[index] = 1;
-    });
-
-    return tf.tensor2d([inputVector]);
-}
-// Helper functions for analysis
-function calculateWordCount(text) {
-    return text.toLowerCase().split(/\s+/).filter(word => word.length > 0).length;
-}
-
-function calculateSentiment(text) {
-    // Simple sentiment analysis based on word patterns
-    const positiveWords = ['success', 'good', 'great', 'win', 'winning', 'support', 'backed', 'free', 'freed', 'help'];
-    const negativeWords = ['fake', 'false', 'wrong', 'trapped', 'demands', 'against', 'failed', 'attack', 'conflict'];
-
+// Content Analysis Functions
+function analyzeContent(text) {
     const words = text.toLowerCase().split(/\s+/);
-    let sentiment = 0;
+    const wordCount = words.length;
 
-    words.forEach(word => {
-        if (positiveWords.includes(word)) sentiment += 1;
-        if (negativeWords.includes(word)) sentiment -= 1;
+    // Calculate subject distributions
+    const subjectScores = Object.entries(SUBJECT_KEYWORDS).map(([subject, keywords]) => {
+        const matchCount = words.filter(word =>
+            keywords.some(keyword => word.includes(keyword))
+        ).length;
+        return {
+            subject,
+            score: matchCount / wordCount
+        };
     });
 
-    return sentiment / words.length; // Normalize by text length
+    // Normalize subject scores
+    const totalScore = subjectScores.reduce((sum, {score}) => sum + score, 0) || 1;
+    const normalizedSubjects = subjectScores.map(({subject, score}) => ({
+        subject,
+        score: score / totalScore
+    }));
+
+    const credibilityScore = calculateCredibilityScore(text);
+
+    return {
+        subjects: normalizedSubjects,
+        credibility: credibilityScore,
+        metrics: {
+            wordCount,
+            avgSentenceLength: calculateAvgSentenceLength(text),
+            capsPercentage: calculateCapsPercentage(text)
+        }
+    };
 }
 
-function analyzeSubject(text) {
-    const subjects = {
-        politics: ['trump', 'gop', 'democrat', 'senator', 'election', 'candidate', 'vote', 'political'],
-        world: ['syria', 'france', 'islamic', 'international', 'foreign', 'global', 'world'],
-        technology: ['tech', 'cyber', 'digital', 'internet', 'software', 'online', 'AI'],
-        health: ['health', 'medical', 'disease', 'treatment', 'doctor', 'hospital', 'vaccine']
+function calculateCredibilityScore(text) {
+    let score = 0.5; // Base score
+    const lowerText = text.toLowerCase();
+
+    // Word count factor
+    const words = text.split(/\s+/);
+    if (words.length < 50) {
+        score -= 0.1; // Penalize very short articles
+    } else if (words.length > 200) {
+        score += 0.1; // Reward longer, more detailed articles
+    }
+
+    // Source credibility check
+    const credibleSources = [
+        'reuters', 'associated press', 'ap ', 'bloomberg',
+        'afp', 'bbc', 'cnn', 'nyt', 'new york times',
+        'washington post', 'wsj', 'wall street journal'
+    ];
+    for (const source of credibleSources) {
+        if (lowerText.includes(source)) {
+            score += 0.15;
+            break; // Only count one major source
+        }
+    }
+
+    // Check high credibility patterns with weighted importance
+    const highCredibilityPatterns = {
+        major: {
+            patterns: [
+                'according to official',
+                'study published in',
+                'research shows',
+                'experts confirmed',
+                'official statement'
+            ],
+            weight: 0.15
+        },
+        medium: {
+            patterns: [
+                'according to',
+                'officials said',
+                'researchers found',
+                'data shows',
+                'survey indicates'
+            ],
+            weight: 0.1
+        },
+        minor: {
+            patterns: [
+                'reports suggest',
+                'sources say',
+                'experts believe',
+                'reportedly'
+            ],
+            weight: 0.05
+        }
     };
 
-    const words = text.toLowerCase().split(/\s+/);
-    let counts = { politics: 0, world: 0, technology: 0, health: 0 };
-
-    words.forEach(word => {
-        for (let [subject, keywords] of Object.entries(subjects)) {
-            if (keywords.some(keyword => word.includes(keyword))) {
-                counts[subject]++;
+    // Check high credibility patterns
+    for (const [importance, { patterns, weight }] of Object.entries(highCredibilityPatterns)) {
+        for (const pattern of patterns) {
+            if (lowerText.includes(pattern)) {
+                score += weight;
+                break; // Only count one pattern per importance level
             }
         }
-    });
+    }
 
-    // Convert to percentages
-    const total = Object.values(counts).reduce((a, b) => a + b, 0) || 1;
-    return Object.values(counts).map(count => count / total);
+    // Check low credibility patterns with weighted penalties
+    const lowCredibilityPatterns = {
+        major: {
+            patterns: [
+                'you won\'t believe',
+                'shocking truth',
+                'conspiracy',
+                'they don\'t want you to know',
+                'miracle'
+            ],
+            weight: -0.2
+        },
+        medium: {
+            patterns: [
+                'viral',
+                'controversial',
+                'anonymous sources claim',
+                'shocking',
+                'mind-blowing'
+            ],
+            weight: -0.15
+        },
+        minor: {
+            patterns: [
+                'may have',
+                'could be',
+                'some say',
+                'people claim'
+            ],
+            weight: -0.1
+        }
+    };
+
+    // Check low credibility patterns
+    for (const [importance, { patterns, weight }] of Object.entries(lowCredibilityPatterns)) {
+        for (const pattern of patterns) {
+            if (lowerText.includes(pattern)) {
+                score += weight;
+                break; // Only count one pattern per importance level
+            }
+        }
+    }
+
+    // Style and structure analysis
+    const styleChecks = {
+        hasQuotes: (text.match(/["''].+["'']/g) || []).length > 0,
+        hasNumbers: /\d+%|\d+\s*(million|billion|trillion)/i.test(text),
+        hasDateOrTime: /\d{1,2}\/\d{1,2}\/\d{2,4}|\d{1,2}:\d{2}/.test(text),
+        hasCitations: /\([^)]+\)|\[[^\]]+\]/.test(text),
+        properSentenceStructure: /^[A-Z][^.!?]+[.!?]/.test(text),
+        hasExcessiveCaps: (text.match(/[A-Z]{2,}/g) || []).length > 3,
+        hasExclamation: (text.match(/!/g) || []).length > 1
+    };
+
+    // Apply style scoring
+    if (styleChecks.hasQuotes) score += 0.1;
+    if (styleChecks.hasNumbers) score += 0.05;
+    if (styleChecks.hasDateOrTime) score += 0.05;
+    if (styleChecks.hasCitations) score += 0.1;
+    if (styleChecks.properSentenceStructure) score += 0.05;
+    if (styleChecks.hasExcessiveCaps) score -= 0.15;
+    if (styleChecks.hasExclamation) score -= 0.1;
+
+    // Language complexity analysis
+    const complexWords = text.split(/\s+/).filter(word => word.length > 8).length;
+    const complexityRatio = complexWords / words.length;
+    if (complexityRatio > 0.2) score += 0.1;
+
+    // Ensure score stays within bounds
+    return Math.max(0, Math.min(1, score));
 }
 
+function calculateSentimentDistribution(text) {
+    const words = text.toLowerCase().split(/\s+/);
+    let positive = 0, negative = 0, neutral = 0;
+
+    // Word-level sentiment analysis
+    words.forEach(word => {
+        if (SENTIMENT_DICTIONARY.positive.some(pos => word.includes(pos))) positive++;
+        else if (SENTIMENT_DICTIONARY.negative.some(neg => word.includes(neg))) negative++;
+        else if (SENTIMENT_DICTIONARY.neutral.some(neu => word.includes(neu))) neutral++;
+    });
+
+    // Context and phrase analysis
+    const lowerText = text.toLowerCase();
+    SENTIMENT_DICTIONARY.positive.forEach(phrase => {
+        if (phrase.includes(' ') && lowerText.includes(phrase)) positive += 2;
+    });
+    SENTIMENT_DICTIONARY.negative.forEach(phrase => {
+        if (phrase.includes(' ') && lowerText.includes(phrase)) negative += 2;
+    });
+
+    // Ensure minimum values
+    positive = Math.max(1, positive);
+    negative = Math.max(1, negative);
+    neutral = Math.max(1, neutral);
+
+    // Calculate distribution
+    const total = positive + negative + neutral;
+    return [
+        positive / total,
+        neutral / total,
+        negative / total
+    ];
+}
+
+function calculateAvgSentenceLength(text) {
+    const sentences = text.split(/[.!?]+/).filter(Boolean);
+    const wordCount = sentences.reduce((count, sentence) =>
+        count + sentence.trim().split(/\s+/).length, 0
+    );
+    return wordCount / sentences.length || 0;
+}
+
+function calculateCapsPercentage(text) {
+    const capsCount = (text.match(/[A-Z]/g) || []).length;
+    return capsCount / text.length || 0;
+}
+
+// Main Analysis Function
 async function analyzeNews() {
     const text = elements.newsInput.value.trim();
     if (!text) {
@@ -128,54 +333,17 @@ async function analyzeNews() {
         elements.analyzeBtn.disabled = true;
         elements.analyzeBtn.textContent = 'Analyzing...';
 
-        // Calculate various metrics
-        const wordCount = calculateWordCount(text);
-        const sentiment = calculateSentiment(text);
-        const subjectDist = analyzeSubject(text);
+        const contentAnalysis = analyzeContent(text);
+        const subjectDistribution = contentAnalysis.subjects.map(({score}) => score);
+        const sentimentDist = calculateSentimentDistribution(text);
 
-        // Credibility factors
-        let credibilityScore = 0.5; // Base score
+        const results = {
+            credibility_score: contentAnalysis.credibility,
+            subject_distribution: subjectDistribution,
+            sentiment_distribution: sentimentDist
+        };
 
-        // Word count factor (penalize very short or very long articles)
-        const idealLength = 500;
-        const lengthFactor = Math.min(1, Math.exp(-Math.pow(wordCount - idealLength, 2) / 200000));
-        credibilityScore += lengthFactor * 0.2;
-
-        // Sentiment factor (extreme sentiment might indicate bias)
-        const sentimentFactor = 1 - Math.abs(sentiment);
-        credibilityScore += sentimentFactor * 0.2;
-
-        // Subject clarity factor (clear topic focus might indicate legitimacy)
-        const maxSubject = Math.max(...subjectDist);
-        credibilityScore += maxSubject * 0.1;
-
-        // Caps lock and punctuation analysis
-        const capsRatio = (text.match(/[A-Z]/g) || []).length / text.length;
-        if (capsRatio > 0.3) credibilityScore -= 0.1;
-
-        // Excessive punctuation check
-        const exclamationRatio = (text.match(/!/g) || []).length / text.length;
-        if (exclamationRatio > 0.01) credibilityScore -= 0.1;
-
-        // Ensure score is between 0 and 1
-        credibilityScore = Math.max(0, Math.min(1, credibilityScore));
-
-        // Calculate sentiment distribution
-        const sentimentDist = [
-            Math.max(0, sentiment), // Positive
-            1 - Math.abs(sentiment), // Neutral
-            Math.max(0, -sentiment)  // Negative
-        ].map(v => Math.abs(v));
-
-        // Normalize sentiment distribution
-        const sentimentSum = sentimentDist.reduce((a, b) => a + b, 0);
-        const normalizedSentiment = sentimentDist.map(v => v / sentimentSum);
-
-        displayResults({
-            credibility_score: credibilityScore,
-            subject_distribution: subjectDist,
-            sentiment_distribution: normalizedSentiment
-        });
+        displayResults(results);
 
     } catch (error) {
         console.error('Analysis error:', error);
@@ -186,28 +354,7 @@ async function analyzeNews() {
     }
 }
 
-// Fallback analysis when model isn't available
-function performFallbackAnalysis(text) {
-    // Simple heuristics for fallback analysis
-    const wordCount = text.split(' ').length;
-    const sentenceCount = text.split(/[.!?]+/).length;
-    const avgWordLength = text.length / wordCount;
-
-    // Calculate mock credibility based on basic metrics
-    let credibility = 0.7; // Base credibility
-    credibility += wordCount > 100 ? 0.1 : 0;
-    credibility += sentenceCount > 5 ? 0.1 : 0;
-    credibility += avgWordLength > 4 ? 0.1 : 0;
-    credibility = Math.min(credibility, 1);
-
-    return {
-        credibility_score: credibility,
-        subject_distribution: [0.4, 0.3, 0.2, 0.1],
-        sentiment_distribution: [0.5, 0.3, 0.2]
-    };
-}
-
-// Initialize charts
+// Charts Functions
 function initializeCharts() {
     const isDarkMode = document.body.classList.contains('dark-mode');
     const textColor = isDarkMode ? '#f8fafc' : '#1e293b';
@@ -215,10 +362,10 @@ function initializeCharts() {
     charts.subject = new Chart(document.getElementById('subject-chart'), {
         type: 'bar',
         data: {
-            labels: ['Politics', 'Technology', 'Science', 'Entertainment'],
+            labels: ['Politics News', 'World News', 'General News', 'Health News', 'Economy News'],
             datasets: [{
                 label: 'Subject Distribution',
-                data: [0.25, 0.25, 0.25, 0.25],
+                data: [0, 0, 0, 0, 0],
                 backgroundColor: '#3b82f6'
             }]
         },
@@ -228,6 +375,7 @@ function initializeCharts() {
             scales: {
                 y: {
                     beginAtZero: true,
+                    max: 1,
                     ticks: { color: textColor }
                 },
                 x: {
@@ -258,23 +406,7 @@ function initializeCharts() {
     });
 }
 
-// Display results
-function displayResults(results) {
-    elements.resultsSection.classList.remove('hidden');
-
-    const scorePercentage = (results.credibility_score * 100).toFixed(1);
-    elements.scoreValue.textContent = scorePercentage;
-
-    charts.subject.data.datasets[0].data = results.subject_distribution;
-    charts.subject.update();
-
-    charts.sentiment.data.datasets[0].data = results.sentiment_distribution;
-    charts.sentiment.update();
-
-    elements.resultsSection.scrollIntoView({ behavior: 'smooth' });
-}
-
-// Theme handling
+// Theme Functions
 function initializeTheme() {
     const isDarkMode = localStorage.getItem('darkMode') === 'true';
     document.body.classList.toggle('dark-mode', isDarkMode);
@@ -307,7 +439,7 @@ function updateChartsTheme() {
     });
 }
 
-// Navigation
+// Navigation Functions
 function initializeNavigation() {
     elements.navLinks.forEach(link => {
         link.addEventListener('click', () => {
@@ -327,7 +459,7 @@ function switchPage(targetPage) {
     });
 }
 
-// Share functionality
+// Share Functions
 function initializeSharing() {
     elements.shareBtn?.addEventListener('click', () => {
         elements.shareMenu?.classList.toggle('hidden');
@@ -359,14 +491,37 @@ function shareResults(platform) {
     elements.shareMenu?.classList.add('hidden');
 }
 
-// Notification functions
+// Display Functions
+function displayResults(results) {
+    elements.resultsSection.classList.remove('hidden');
+
+    const scorePercentage = (results.credibility_score * 100).toFixed(1);
+    elements.scoreValue.textContent = scorePercentage;
+
+    // Map the subject distribution to match the chart's label order
+    const orderedSubjectData = [
+        results.subject_distribution[0], // Politics
+        results.subject_distribution[1], // World
+        results.subject_distribution[2], // General
+        results.subject_distribution[3], // Health
+        results.subject_distribution[4]  // Economy
+    ];
+
+    charts.subject.data.datasets[0].data = orderedSubjectData;
+    charts.subject.update();
+
+    charts.sentiment.data.datasets[0].data = results.sentiment_distribution;
+    charts.sentiment.update();
+
+    elements.resultsSection.scrollIntoView({ behavior: 'smooth' });
+}
+
 function showError(message) {
     const errorDiv = document.createElement('div');
     errorDiv.className = 'error-message';
     errorDiv.textContent = message;
     errorDiv.style.color = 'red';
     errorDiv.style.padding = '10px';
-    errorDiv.style.marginTop = '10px';
     document.querySelector('.analyzer-container').appendChild(errorDiv);
     setTimeout(() => errorDiv.remove(), 5000);
 }
@@ -377,15 +532,13 @@ function showMessage(message) {
     messageDiv.textContent = message;
     messageDiv.style.color = 'green';
     messageDiv.style.padding = '10px';
-    messageDiv.style.marginTop = '10px';
     document.querySelector('.analyzer-container').appendChild(messageDiv);
     setTimeout(() => messageDiv.remove(), 5000);
 }
 
-// Initialize application
+// Initialize Application
 document.addEventListener('DOMContentLoaded', () => {
     console.log('Initializing application...');
-    loadModel();
     initializeTheme();
     initializeNavigation();
     initializeCharts();
