@@ -70,10 +70,9 @@
     <div id="about-page" class="section page">
         <div class="about-container">
             <h2>About The Project</h2>
-            <p>The News Credibility Analyzer uses advanced machine learning to help
-                users identify the credibility of news articles. Our system analyzes
-                various factors including content, sentiment, and writing style to
-                provide a comprehensive assessment.</p>
+            <p>Born from our journey with AI LA IDEAS Cohort 3, this project aims to simplify how people evaluate news credibility.
+                Starting with a Kaggle dataset and our growing knowledge of machine learning, we built this analyzer that makes credible information more accessible. While our project began as a final assignment,
+                it's grown into something we're truly passionate about - a tool that can help anyone navigate today's complex media landscape.</p>
             <h3>Our Team</h3>
             <div class="team-grid">
                 <div class="team-member">
@@ -119,5 +118,9 @@
 
 <!-- scripts at the end of the body -->
 <script src="script.js"></script>
+<script type="module">
+    import { initializeAboutPage } from './about.js';
+    document.addEventListener('DOMContentLoaded', initializeAboutPage);
+</script>
 </body>
 </html>
