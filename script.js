@@ -1,6 +1,13 @@
-// Model and charts variables
+// Global variables
 let model = null;
 let charts = {};
+let isModelLoaded = false;
+
+// AWS S3 Configuration
+const AWS_CONFIG = {
+    modelUrl: 'https://model-backet.s3.us-east-2.amazonaws.com/model.json',
+    weightsUrl: 'https://model-backet.s3.us-east-2.amazonaws.com/weights.bin'
+};
 
 // DOM Elements
 const elements = {
@@ -18,58 +25,119 @@ const elements = {
     }
 };
 
-// Initialize TensorFlow.js model
+// Model Loading and Analysis Functions
 async function loadModel() {
     try {
-        console.log('Starting model loading...');
-        if (typeof tf === 'undefined') {
-            throw new Error('TensorFlow.js not loaded');
+        console.log('Loading model from AWS S3...');
+        
+        // Load model architecture and weights
+        model = await tf.loadLayersModel(AWS_CONFIG.modelUrl);
+        console.log('Model architecture loaded');
+
+        // Load weights
+        const weightsResponse = await fetch(AWS_CONFIG.weightsUrl);
+        if (!weightsResponse.ok) {
+            throw new Error('Failed to fetch weights');
         }
-
-        // AWS S3 URLs
-        const modelUrl = 'https://model-backet.s3.us-east-2.amazonaws.com/model.json';
-
-        // Load the model
-        model = await tf.loadLayersModel(modelUrl);
-        console.log('Model loaded successfully');
-        model.summary();
-
+        const weightsArrayBuffer = await weightsResponse.arrayBuffer();
+        const weights = new Float32Array(weightsArrayBuffer);
+        
+        // Set weights to model
+        await model.loadWeights(weights);
+        
+        console.log('Model weights loaded successfully');
+        isModelLoaded = true;
         elements.analyzeBtn.disabled = false;
-        showMessage('Ready to analyze!');
+        showMessage('Model ready for analysis!');
+        
     } catch (error) {
         console.error('Error loading model:', error);
-        showError('Model loading failed. Please refresh and try again.');
+        showError('Failed to load analysis model. Please refresh and try again.');
         elements.analyzeBtn.disabled = true;
     }
 }
 
-// Text preprocessing
+async function analyzeNews() {
+    const text = elements.newsInput.value.trim();
+    
+    if (!text) {
+        showError('Please enter news text to analyze');
+        return;
+    }
+    
+    if (!isModelLoaded) {
+        showError('Model is not ready. Please wait and try again.');
+        return;
+    }
+
+    try {
+        elements.analyzeBtn.disabled = true;
+        elements.analyzeBtn.textContent = 'Analyzing...';
+
+        // Preprocess and analyze
+        const inputTensor = preprocessText(text);
+        const predictions = await model.predict(inputTensor).data();
+        
+        // Process predictions
+        const results = processModelPredictions(predictions);
+        
+        // Display results
+        displayResults(results);
+
+        // Cleanup
+        tf.dispose(inputTensor);
+
+    } catch (error) {
+        console.error('Analysis error:', error);
+        showError('Failed to analyze news. Please try again.');
+    } finally {
+        elements.analyzeBtn.disabled = false;
+        elements.analyzeBtn.textContent = 'Analyze News';
+    }
+}
+
 function preprocessText(text) {
     try {
-        // Basic text cleaning
+        // Text cleaning
         text = text.toLowerCase();
         text = text.replace(/[^\w\s]/g, '');
         text = text.replace(/\s+/g, ' ').trim();
 
-        // Create word array
+        // Tokenization
         const words = text.split(' ');
-        console.log('Processing text of', words.length, 'words');
+        const maxLength = 100; // Adjust based on your model's input size
+        
+        // Create input vector
+        const inputVector = new Array(maxLength).fill(0);
+        words.slice(0, maxLength).forEach((_, index) => {
+            inputVector[index] = 1;
+        });
 
-        // Create fixed-size input vector (100 dimensions)
-        const inputVector = new Array(100).fill(0);
-        for (let i = 0; i < Math.min(words.length, 100); i++) {
-            inputVector[i] = 1;
-        }
-
-        // Create and return tensor
         return tf.tensor2d([inputVector]);
     } catch (error) {
         console.error('Preprocessing error:', error);
-        throw new Error('Text preprocessing failed');
+        throw new Error('Failed to process text input');
     }
 }
 
-// Initialize charts
+function processModelPredictions(predictions) {
+    // Extract credibility score (first output)
+    const credibilityScore = Math.min(Math.max(predictions[0], 0), 1);
+    
+    // Extract subject distribution (next 4 outputs)
+    const subjectDist = predictions.slice(1, 5).map(p => Math.max(0, Math.min(p, 1)));
+    
+    // Extract sentiment distribution (last 3 outputs)
+    const sentimentDist = predictions.slice(5, 8).map(p => Math.max(0, Math.min(p, 1)));
+    
+    return {
+        credibility_score: credibilityScore,
+        subject_distribution: subjectDist,
+        sentiment_distribution: sentimentDist
+    };
+}
+
+// Chart Functions
 function initializeCharts() {
     const isDarkMode = document.body.classList.contains('dark-mode');
     const textColor = isDarkMode ? '#f8fafc' : '#1e293b';
@@ -122,106 +190,6 @@ function initializeCharts() {
     });
 }
 
-// News analysis function
-async function analyzeNews() {
-    const text = elements.newsInput.value.trim();
-    if (!text) {
-        showError('Please enter some text to analyze');
-        return;
-    }
-
-    try {
-        if (!model) {
-            throw new Error('Model not ready. Please wait and try again.');
-        }
-
-        elements.analyzeBtn.disabled = true;
-        elements.analyzeBtn.textContent = 'Analyzing...';
-
-        // Preprocess and predict
-        console.log('Processing input text...');
-        const inputTensor = preprocessText(text);
-
-        console.log('Running prediction...');
-        const prediction = await model.predict(inputTensor).data();
-        const credibilityScore = prediction[0];
-        console.log('Prediction result:', credibilityScore);
-
-        // Generate mock distributions based on credibility score
-        const subjectDist = [
-            0.3 + (Math.random() * 0.2),
-            0.2 + (Math.random() * 0.2),
-            0.25 + (Math.random() * 0.2),
-            0.25 + (Math.random() * 0.2)
-        ].map(v => v * credibilityScore);
-
-        const sentimentDist = [
-            0.4 + (Math.random() * 0.2),
-            0.3 + (Math.random() * 0.2),
-            0.3 + (Math.random() * 0.2)
-        ].map(v => v * credibilityScore);
-
-        // Display results
-        displayResults({
-            credibility_score: credibilityScore,
-            subject_distribution: subjectDist,
-            sentiment_distribution: sentimentDist
-        });
-
-        // Cleanup tensors
-        tf.dispose(inputTensor);
-
-    } catch (error) {
-        console.error('Analysis error:', error);
-        showError(error.message);
-    } finally {
-        elements.analyzeBtn.disabled = false;
-        elements.analyzeBtn.textContent = 'Analyze News';
-    }
-}
-
-// Display results
-function displayResults(data) {
-    elements.resultsSection.classList.remove('hidden');
-
-    // Update score
-    const scorePercentage = (data.credibility_score * 100).toFixed(1);
-    elements.scoreValue.textContent = scorePercentage;
-
-    // Update charts
-    charts.subject.data.datasets[0].data = data.subject_distribution;
-    charts.sentiment.data.datasets[0].data = data.sentiment_distribution;
-
-    charts.subject.update();
-    charts.sentiment.update();
-
-    // Smooth scroll to results
-    elements.resultsSection.scrollIntoView({ behavior: 'smooth' });
-}
-
-// Theme handling
-function initializeTheme() {
-    const isDarkMode = localStorage.getItem('darkMode') !== 'false';
-    document.body.classList.toggle('dark-mode', isDarkMode);
-    document.body.classList.toggle('light-mode', !isDarkMode);
-    updateThemeIcon(isDarkMode);
-    if (Object.keys(charts).length > 0) {
-        updateChartsTheme();
-    }
-}
-
-function toggleTheme() {
-    const isDarkMode = document.body.classList.toggle('dark-mode');
-    document.body.classList.toggle('light-mode', !isDarkMode);
-    localStorage.setItem('darkMode', isDarkMode);
-    updateThemeIcon(isDarkMode);
-    updateChartsTheme();
-}
-
-function updateThemeIcon(isDarkMode) {
-    elements.themeToggle.querySelector('.theme-icon').textContent = isDarkMode ? '🌙' : '☀️';
-}
-
 function updateChartsTheme() {
     const isDarkMode = document.body.classList.contains('dark-mode');
     const textColor = isDarkMode ? '#f8fafc' : '#1e293b';
@@ -236,7 +204,46 @@ function updateChartsTheme() {
     });
 }
 
-// Navigation handling
+// Results Display
+function displayResults(results) {
+    elements.resultsSection.classList.remove('hidden');
+    
+    // Update credibility score
+    const scorePercentage = (results.credibility_score * 100).toFixed(1);
+    elements.scoreValue.textContent = scorePercentage;
+    
+    // Update charts
+    charts.subject.data.datasets[0].data = results.subject_distribution;
+    charts.subject.update();
+    
+    charts.sentiment.data.datasets[0].data = results.sentiment_distribution;
+    charts.sentiment.update();
+    
+    // Scroll to results
+    elements.resultsSection.scrollIntoView({ behavior: 'smooth' });
+}
+
+// Theme Handling
+function initializeTheme() {
+    const isDarkMode = localStorage.getItem('darkMode') !== 'false';
+    document.body.classList.toggle('dark-mode', isDarkMode);
+    document.body.classList.toggle('light-mode', !isDarkMode);
+    updateThemeIcon(isDarkMode);
+}
+
+function toggleTheme() {
+    const isDarkMode = document.body.classList.toggle('dark-mode');
+    document.body.classList.toggle('light-mode', !isDarkMode);
+    localStorage.setItem('darkMode', isDarkMode);
+    updateThemeIcon(isDarkMode);
+    updateChartsTheme();
+}
+
+function updateThemeIcon(isDarkMode) {
+    elements.themeToggle.querySelector('.theme-icon').textContent = isDarkMode ? '🌙' : '☀️';
+}
+
+// Navigation
 function initializeNavigation() {
     elements.navLinks.forEach(link => {
         link.addEventListener('click', () => {
@@ -256,7 +263,7 @@ function switchPage(targetPage) {
     });
 }
 
-// Share functionality
+// Share Functionality
 function initializeSharing() {
     elements.shareBtn.addEventListener('click', () => {
         elements.shareMenu.classList.toggle('hidden');
@@ -288,13 +295,12 @@ function shareResults(platform) {
     elements.shareMenu.classList.add('hidden');
 }
 
-// Notifications
+// Notification Functions
 function showError(message) {
     const errorDiv = document.createElement('div');
     errorDiv.className = 'error-message';
     errorDiv.textContent = message;
     document.querySelector('.analyzer-container').appendChild(errorDiv);
-
     setTimeout(() => errorDiv.remove(), 5000);
 }
 
@@ -303,11 +309,10 @@ function showMessage(message) {
     messageDiv.className = 'success-message';
     messageDiv.textContent = message;
     document.querySelector('.analyzer-container').appendChild(messageDiv);
-
     setTimeout(() => messageDiv.remove(), 5000);
 }
 
-// Initialize application
+// Initialize Application
 document.addEventListener('DOMContentLoaded', () => {
     console.log('Initializing application...');
     loadModel();
@@ -316,19 +321,10 @@ document.addEventListener('DOMContentLoaded', () => {
     initializeCharts();
     initializeSharing();
 
+    // Event listeners
     elements.themeToggle.addEventListener('click', toggleTheme);
     elements.analyzeBtn.addEventListener('click', analyzeNews);
+    elements.newsInput.addEventListener('input', () => {
+        elements.analyzeBtn.disabled = !elements.newsInput.value.trim() || !isModelLoaded;
+    });
 });
-
-//fetch from awss3
-async function loadModel() {
-    try {
-        const modelUrl = 'https://your-bucket-name.s3.your-region.amazonaws.com/model.json';
-        model = await tf.loadLayersModel(modelUrl);
-        console.log('Model loaded successfully');
-    } catch (error) {
-        console.error('Error loading model:', error);
-        showError('Error loading the analysis model. Please try again later.');
-    }
-}
-
