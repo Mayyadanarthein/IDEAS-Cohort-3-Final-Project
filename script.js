@@ -2,64 +2,53 @@
 let model = null;
 let charts = {};
 
-// DOM Elements
-const elements = {
-    themeToggle: document.getElementById('theme-toggle'),
-    navLinks: document.querySelectorAll('.nav-link'),
-    analyzeBtn: document.getElementById('analyze-btn'),
-    newsInput: document.getElementById('news-input'),
-    resultsSection: document.getElementById('results-section'),
-    scoreValue: document.getElementById('score-value'),
-    shareBtn: document.getElementById('share-btn'),
-    shareMenu: document.getElementById('share-menu'),
-    pages: {
-        analyzer: document.getElementById('analyzer-page'),
-        about: document.getElementById('about-page')
-    }
-};
-// the news patterns object
+// News patterns for credibility analysis
 const newsPatterns = {
     credible: {
         keywords: [
             'according to', 'officials said', 'sources confirm', 'reported by',
             'statement from', 'announced', 'confirmed', 'data shows',
-            'evidence suggests', 'analysis indicates'
+            'evidence suggests', 'analysis indicates', 'research shows',
+            'study finds', 'experts say', 'official data'
         ],
         sources: [
             'reuters', 'associated press', 'afp', 'official statement',
-            'government data', 'research study', 'court documents'
+            'government data', 'research study', 'court documents',
+            'official record', 'verified source', 'public record'
         ]
     },
     suspicious: {
         keywords: [
             'shocking', 'you won\'t believe', 'conspiracy', 'secret plot',
             'they don\'t want you to know', 'spreading like wildfire',
-            'wake up', 'mainstream media won\'t tell you'
+            'wake up', 'mainstream media won\'t tell you', 'anonymous source claims',
+            'what they dont want you to know', 'share before deleted'
         ],
         patterns: [
             'EXCLUSIVE', 'BREAKING', '!!!', 'WAKE UP',
-            'share before they delete'
+            'share before they delete', 'SHARE THIS NOW',
+            'THEY LIED', 'EXPOSED', 'SHOCKING TRUTH'
         ]
     }
 };
 
-// Add the new credibility score calculation function
+// Calculate credibility score
 function calculateCredibilityScore(text) {
     const textLower = text.toLowerCase();
-
-    const credibleCount = newsPatterns.credible.keywords.filter(word =>
+    
+    const credibleCount = newsPatterns.credible.keywords.filter(word => 
         textLower.includes(word)).length;
-    const sourceCount = newsPatterns.credible.sources.filter(source =>
+    const sourceCount = newsPatterns.credible.sources.filter(source => 
         textLower.includes(source)).length;
-
-    const suspiciousCount = newsPatterns.suspicious.keywords.filter(word =>
+    
+    const suspiciousCount = newsPatterns.suspicious.keywords.filter(word => 
         textLower.includes(word)).length;
-    const suspiciousPatterns = newsPatterns.suspicious.patterns.filter(pattern =>
+    const suspiciousPatterns = newsPatterns.suspicious.patterns.filter(pattern => 
         text.includes(pattern)).length;
 
     const titleWords = text.split(' ').length;
     const idealTitleLength = titleWords >= 8 && titleWords <= 15;
-
+    
     let score = 0.5;
     score += (credibleCount * 0.1);
     score += (sourceCount * 0.15);
@@ -68,7 +57,7 @@ function calculateCredibilityScore(text) {
     score += (idealTitleLength ? 0.1 : -0.1);
 
     score = Math.max(0, Math.min(1, score));
-
+    
     if (score < 0.4) return 0.014; // Fake news score
     if (score > 0.6) return 0.922; // Real news score
     return score;
@@ -87,34 +76,36 @@ async function loadModel() {
         console.log('Model loaded successfully');
         model.summary();
 
-        elements.analyzeBtn.disabled = false;
-        showMessage('Model loaded successfully! Ready to analyze news.');
+        const analyzeBtn = document.getElementById('analyze-btn');
+        if (analyzeBtn) {
+            analyzeBtn.disabled = false;
+            showMessage('Model loaded successfully! Ready to analyze news.');
+        }
     } catch (error) {
         console.error('Error loading model:', error);
         showError('Model loading failed. Please refresh and try again.');
-        elements.analyzeBtn.disabled = true;
+        const analyzeBtn = document.getElementById('analyze-btn');
+        if (analyzeBtn) {
+            analyzeBtn.disabled = true;
+        }
     }
 }
 
 // Text preprocessing
 function preprocessText(text) {
     try {
-        // Basic text cleaning
         text = text.toLowerCase();
         text = text.replace(/[^\w\s]/g, '');
         text = text.replace(/\s+/g, ' ').trim();
 
-        // Create word array
         const words = text.split(' ');
         console.log('Processing text of', words.length, 'words');
 
-        // Create fixed-size input vector (100 dimensions)
         const inputVector = new Array(100).fill(0);
         for (let i = 0; i < Math.min(words.length, 100); i++) {
             inputVector[i] = 1;
         }
 
-        // Create and return tensor with shape [1, 100]
         return tf.tensor2d([inputVector], [1, 100]);
     } catch (error) {
         console.error('Preprocessing error:', error);
@@ -127,59 +118,79 @@ function initializeCharts() {
     const isDarkMode = document.body.classList.contains('dark-mode');
     const textColor = isDarkMode ? '#f8fafc' : '#1e293b';
 
-    // Subject distribution chart
-    charts.subject = new Chart(document.getElementById('subject-chart'), {
-        type: 'bar',
-        data: {
-            labels: ['Politics', 'Technology', 'Science', 'Entertainment'],
-            datasets: [{
-                label: 'Subject Distribution',
-                data: [0, 0, 0, 0],
-                backgroundColor: '#3b82f6'
-            }]
-        },
-        options: {
-            responsive: true,
-            plugins: { legend: { display: false } },
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    ticks: { color: textColor }
-                },
-                x: {
-                    ticks: { color: textColor }
-                }
-            }
-        }
-    });
+    const subjectChart = document.getElementById('subject-chart');
+    const sentimentChart = document.getElementById('sentiment-chart');
 
-    // Sentiment chart
-    charts.sentiment = new Chart(document.getElementById('sentiment-chart'), {
-        type: 'doughnut',
-        data: {
-            labels: ['Positive', 'Neutral', 'Negative'],
-            datasets: [{
-                data: [0, 0, 0],
-                backgroundColor: ['#22c55e', '#64748b', '#ef4444']
-            }]
-        },
-        options: {
-            responsive: true,
-            plugins: {
-                legend: {
-                    position: 'bottom',
-                    labels: { color: textColor }
+    if (subjectChart) {
+        charts.subject = new Chart(subjectChart, {
+            type: 'bar',
+            data: {
+                labels: ['Politics', 'Technology', 'Science', 'Entertainment'],
+                datasets: [{
+                    label: 'Subject Distribution',
+                    data: [0, 0, 0, 0],
+                    backgroundColor: '#3b82f6'
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: { color: textColor }
+                    },
+                    x: {
+                        ticks: { color: textColor }
+                    }
                 }
             }
-        }
-    });
+        });
+    }
+
+    if (sentimentChart) {
+        charts.sentiment = new Chart(sentimentChart, {
+            type: 'doughnut',
+            data: {
+                labels: ['Positive', 'Neutral', 'Negative'],
+                datasets: [{
+                    data: [0, 0, 0],
+                    backgroundColor: ['#22c55e', '#64748b', '#ef4444']
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: { color: textColor }
+                    }
+                }
+            }
+        });
+    }
 }
 
+// News analysis function
 async function analyzeNews() {
-    const text = elements.newsInput.value.trim();
+    console.log('Starting analysis...');
+    
+    const newsInput = document.getElementById('news-input');
+    if (!newsInput) {
+        console.error('News input not found');
+        return;
+    }
+
+    const text = newsInput.value.trim();
     if (!text) {
         showError('Please enter some text to analyze');
         return;
+    }
+
+    const analyzeBtn = document.getElementById('analyze-btn');
+    if (analyzeBtn) {
+        analyzeBtn.disabled = true;
+        analyzeBtn.textContent = 'Analyzing...';
     }
 
     try {
@@ -187,19 +198,16 @@ async function analyzeNews() {
             throw new Error('Model not ready. Please wait and try again.');
         }
 
-        elements.analyzeBtn.disabled = true;
-        elements.analyzeBtn.textContent = 'Analyzing...';
-
-        // Calculate credibility score using our new function
+        // Calculate credibility score
         const credibilityScore = calculateCredibilityScore(text);
         console.log('Credibility Score:', credibilityScore);
 
-        // Get model prediction as a secondary verification
+        // Get model prediction
         const inputTensor = preprocessText(text);
         const modelPrediction = await model.predict(inputTensor).data();
         console.log('Model Prediction:', modelPrediction[0]);
 
-        // Use the new credibility score for the results
+        // Calculate distributions
         const textLower = text.toLowerCase();
         const subjectDist = [
             calculateSubjectScore(textLower, ['politics', 'government', 'president', 'policy']),
@@ -210,6 +218,7 @@ async function analyzeNews() {
 
         const sentimentDist = calculateSentimentDistribution(textLower);
 
+        // Display results
         displayResults({
             credibility_score: credibilityScore,
             subject_distribution: subjectDist,
@@ -222,16 +231,16 @@ async function analyzeNews() {
         console.error('Analysis error:', error);
         showError(error.message);
     } finally {
-        elements.analyzeBtn.disabled = false;
-        elements.analyzeBtn.textContent = 'Analyze News';
+        if (analyzeBtn) {
+            analyzeBtn.disabled = false;
+            analyzeBtn.textContent = 'Analyze News';
+        }
     }
 }
 
 // Helper function to calculate subject scores
 function calculateSubjectScore(text, keywords) {
-    //Count how many keywords from the category appear in the text
     const matches = keywords.filter(keyword => text.includes(keyword)).length;
-    //Return a score between 0 & 1
     return matches / keywords.length;
 }
 
@@ -239,13 +248,13 @@ function calculateSubjectScore(text, keywords) {
 function calculateSentimentDistribution(text) {
     const positiveWords = ['good', 'great', 'excellent', 'positive', 'success', 'beneficial', 'improvement'];
     const negativeWords = ['bad', 'poor', 'negative', 'failure', 'wrong', 'problem', 'crisis'];
-
+    
     const words = text.split(' ');
     const positiveCount = words.filter(word => positiveWords.some(pos => word.includes(pos))).length;
     const negativeCount = words.filter(word => negativeWords.some(neg => word.includes(neg))).length;
     const neutralCount = words.length - positiveCount - negativeCount;
 
-    const total = words.length || 1; // Avoid division by zero
+    const total = words.length || 1;
     return [
         positiveCount / total,
         neutralCount / total,
@@ -255,26 +264,33 @@ function calculateSentimentDistribution(text) {
 
 // Display results
 function displayResults(data) {
-    elements.resultsSection.classList.remove('hidden');
+    const resultsSection = document.getElementById('results-section');
+    if (!resultsSection) {
+        console.error('Results section not found');
+        return;
+    }
 
-    // Update score
-    const scorePercentage = (data.credibility_score * 100).toFixed(1);
-    elements.scoreValue.textContent = scorePercentage;
+    resultsSection.classList.remove('hidden');
 
-    // Update charts
-    charts.subject.data.datasets[0].data = data.subject_distribution;
-    charts.sentiment.data.datasets[0].data = data.sentiment_distribution;
+    const scoreValue = document.getElementById('score-value');
+    if (scoreValue) {
+        const scorePercentage = (data.credibility_score * 100).toFixed(1);
+        scoreValue.textContent = scorePercentage;
+    }
 
-    charts.subject.update();
-    charts.sentiment.update();
+    if (charts.subject && charts.sentiment) {
+        charts.subject.data.datasets[0].data = data.subject_distribution;
+        charts.sentiment.data.datasets[0].data = data.sentiment_distribution;
+        charts.subject.update();
+        charts.sentiment.update();
+    }
 
-    // Smooth scroll to results
-    elements.resultsSection.scrollIntoView({ behavior: 'smooth' });
+    resultsSection.scrollIntoView({ behavior: 'smooth' });
 }
 
 // Theme handling
 function initializeTheme() {
-    const isDarkMode = localStorage.getItem('darkMode') !== 'false';
+    const isDarkMode = localStorage.getItem('darkMode') === 'true';
     document.body.classList.toggle('dark-mode', isDarkMode);
     document.body.classList.toggle('light-mode', !isDarkMode);
     updateThemeIcon(isDarkMode);
@@ -292,7 +308,13 @@ function toggleTheme() {
 }
 
 function updateThemeIcon(isDarkMode) {
-    elements.themeToggle.textContent = isDarkMode ? '🌙' : '☀️';
+    const themeToggle = document.getElementById('theme-toggle');
+    if (themeToggle) {
+        const icon = themeToggle.querySelector('.theme-icon');
+        if (icon) {
+            icon.textContent = isDarkMode ? '🌙' : '☀️';
+        }
+    }
 }
 
 function updateChartsTheme() {
@@ -311,19 +333,22 @@ function updateChartsTheme() {
 
 // Navigation handling
 function switchPage(targetPage) {
-    elements.navLinks.forEach(link => {
+    const navLinks = document.querySelectorAll('.nav-link');
+    navLinks.forEach(link => {
         link.classList.toggle('active', link.dataset.page === targetPage);
     });
 
-    Object.entries(elements.pages).forEach(([page, element]) => {
-        element.classList.toggle('active', page === targetPage);
+    const pages = document.querySelectorAll('.page');
+    pages.forEach(page => {
+        page.classList.toggle('active', page.id === `${targetPage}-page`);
     });
 }
 
 // Share functionality
 function shareResults(platform) {
     const url = window.location.href;
-    const text = `Check out this news analysis! Credibility Score: ${elements.scoreValue.textContent}%`;
+    const scoreValue = document.getElementById('score-value');
+    const text = `Check out this news analysis! Credibility Score: ${scoreValue ? scoreValue.textContent : ''}%`;
 
     const shareUrls = {
         twitter: `https://twitter.com/intent/tweet?url=${url}&text=${encodeURIComponent(text)}`,
@@ -335,53 +360,84 @@ function shareResults(platform) {
         navigator.clipboard.writeText(url)
             .then(() => showMessage('Link copied to clipboard!'))
             .catch(() => showError('Failed to copy link'));
-    } else {
+    } else if (shareUrls[platform]) {
         window.open(shareUrls[platform], '_blank');
     }
 
-    elements.shareMenu.classList.add('hidden');
+    const shareMenu = document.getElementById('share-menu');
+    if (shareMenu) {
+        shareMenu.classList.add('hidden');
+    }
 }
 
 // Notifications
 function showError(message) {
-    const errorDiv = document.createElement('div');
-    errorDiv.className = 'error-message';
-    errorDiv.textContent = message;
-    document.querySelector('.analyzer-container').appendChild(errorDiv);
-
-    setTimeout(() => errorDiv.remove(), 5000);
+    const container = document.querySelector('.analyzer-container');
+    if (container) {
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'error-message';
+        errorDiv.textContent = message;
+        container.appendChild(errorDiv);
+        setTimeout(() => errorDiv.remove(), 5000);
+    }
 }
 
 function showMessage(message) {
-    const messageDiv = document.createElement('div');
-    messageDiv.className = 'success-message';
-    messageDiv.textContent = message;
-    document.querySelector('.analyzer-container').appendChild(messageDiv);
-
-    setTimeout(() => messageDiv.remove(), 5000);
+    const container = document.querySelector('.analyzer-container');
+    if (container) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'success-message';
+        messageDiv.textContent = message;
+        container.appendChild(messageDiv);
+        setTimeout(() => messageDiv.remove(), 5000);
+    }
 }
 
 // Initialize application
 document.addEventListener('DOMContentLoaded', () => {
     console.log('Initializing application...');
+    
+    // Debug logs
+    console.log('Finding elements:', {
+        analyzeBtn: document.getElementById('analyze-btn'),
+        newsInput: document.getElementById('news-input'),
+        resultsSection: document.getElementById('results-section')
+    });
+
+    // Initialize core functionality
     loadModel();
     initializeTheme();
     initializeCharts();
 
-    // Event listeners
-    elements.themeToggle.addEventListener('click', toggleTheme);
-    elements.analyzeBtn.addEventListener('click', analyzeNews);
+    // Set up event listeners
+    const analyzeBtn = document.getElementById('analyze-btn');
+    if (analyzeBtn) {
+        analyzeBtn.addEventListener('click', () => {
+            console.log('Analyze button clicked');
+            analyzeNews();
+        });
+    }
 
-    // Initialize navigation
-    elements.navLinks.forEach(link => {
+    const themeToggle = document.getElementById('theme-toggle');
+    if (themeToggle) {
+        themeToggle.addEventListener('click', toggleTheme);
+    }
+
+    // Navigation
+    document.querySelectorAll('.nav-link').forEach(link => {
         link.addEventListener('click', () => switchPage(link.dataset.page));
     });
 
-    // Initialize sharing
-    if (elements.shareBtn) {
-        elements.shareBtn.addEventListener('click', () => elements.shareMenu.classList.toggle('hidden'));
+    // Share functionality
+    const shareBtn = document.getElementById('share-btn');
+    if (shareBtn) {
+        shareBtn.addEventListener('click', () => {
+            const shareMenu = document.getElementById('share-menu');
+            if (shareMenu) {
+                shareMenu.classList.toggle('hidden');
+            }
+        });
+
         document.querySelectorAll('.share-option').forEach(button => {
             button.addEventListener('click', () => shareResults(button.dataset.platform));
         });
-    }
-});
