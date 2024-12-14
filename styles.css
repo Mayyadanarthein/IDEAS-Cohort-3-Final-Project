@@ -1,5 +1,7 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600&family=Cormorant+Garamond:wght@500;600&family=Libre+Baskerville:wght@400;700&display=swap');
+
 :root {
-    /* Colors */
+    /* Colors - updated for better light/dark mode contrast */
     --primary: #3b82f6;
     --primary-dark: #2563eb;
     --bg-dark: #1e293b;
@@ -9,8 +11,85 @@
     --border-dark: #334155;
     --border-light: #e2e8f0;
     --card-dark: #334155;
-    --card-light: #f1f5f9;
+    --card-light: #ffffff;
+    --shadow-light: rgba(0, 0, 0, 0.1);
 }
+
+/* Theme Styles - Updated */
+body.light-mode {
+    background-color: #f8fafc;
+    color: var(--text-light);
+}
+
+body.light-mode .navbar {
+    background-color: white;
+    border-bottom: 1px solid var(--border-light);
+    box-shadow: 0 2px 4px var(--shadow-light);
+}
+
+body.light-mode .nav-title {
+    color: var(--text-light);
+}
+
+body.light-mode .analyzer-container {
+    background-color: white;
+    box-shadow: 0 4px 6px var(--shadow-light);
+}
+
+body.light-mode textarea {
+    background-color: #f8fafc;
+    border: 1px solid var(--border-light);
+    color: var(--text-light);
+}
+
+body.light-mode .chart-container {
+    background-color: white;
+    border: 1px solid var(--border-light);
+    box-shadow: 0 2px 4px var(--shadow-light);
+}
+
+body.light-mode .team-member {
+    background-color: white;
+    box-shadow: 0 4px 6px var(--shadow-light);
+}
+
+body.light-mode .team-member h4,
+body.light-mode .team-member p {
+    color: var(--text-light);
+}
+
+body.light-mode .social-links a {
+    color: var(--text-light);
+}
+
+body.light-mode .content-block {
+    background-color: white;
+    box-shadow: 0 2px 4px var(--shadow-light);
+}
+
+/* Score display in light mode */
+body.light-mode .score-display {
+    color: var(--primary);
+}
+
+/* Chart containers in light mode */
+body.light-mode .chart-container {
+    background-color: white;
+    border: 1px solid var(--border-light);
+}
+
+/* About page text in light mode */
+body.light-mode .about-container h2,
+body.light-mode .about-container h3 {
+    color: var(--primary);
+}
+
+body.light-mode .about-container p {
+    color: var(--text-light);
+}
+
+/* Rest of your existing CSS remains the same */
+
 
 * {
     margin: 0;
@@ -36,6 +115,18 @@ body.light-mode {
 }
 
 /* Navigation */
+.nav-title {
+    font-family: 'Libre Baskerville', serif;
+    font-weight: 300;
+    font-size: 1.5rem;
+    color: var(--text-dark);
+    letter-spacing: 0.02em;
+    text-decoration: none;
+    margin: 0;
+    padding: 0;
+    line-height: 1.2;
+}
+
 .navbar {
     padding: 1rem;
     border-bottom: 1px solid var(--border-dark);
@@ -295,4 +386,125 @@ textarea {
 .team-member:hover {
     transform: translateY(-5px);
 }
+/* about.js styles */
 
+.about-content {
+    margin: 2rem 0;
+}
+
+.about-section {
+    margin-bottom: 3rem;
+}
+
+.about-section h2 {
+    color: var(--primary);
+    margin-bottom: 1.5rem;
+}
+
+.content-block {
+    background-color: var(--card-dark);
+    border-radius: 0.5rem;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.content-block h3 {
+    color: var(--text-dark);
+    margin-bottom: 1rem;
+}
+
+.content-block ul {
+    list-style-type: none;
+    padding-left: 0;
+    margin-top: 1rem;
+}
+
+.content-block li {
+    padding: 0.5rem 0;
+    padding-left: 1.5rem;
+    position: relative;
+}
+
+.content-block li:before {
+    content: "•";
+    color: var(--primary);
+    position: absolute;
+    left: 0;
+}
+
+.resource-links {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.resource-link {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem;
+    background-color: var(--card-dark);
+    border-radius: 0.5rem;
+    color: var(--text-dark);
+    text-decoration: none;
+    transition: transform 0.2s ease;
+}
+
+.resource-link:hover {
+    transform: translateY(-2px);
+    background-color: var(--primary);
+}
+
+.resource-link i {
+    margin-left: 0.5rem;
+}
+
+/* Update these styles in your styles.css */
+
+.about-container h2,
+.about-container h3 {
+    color: var(--primary);
+    margin-bottom: 1.5rem;
+    font-size: 1.875rem; /* Reduced from 2.5rem */
+    font-weight: bold;
+    text-align: left; /* Ensure left alignment */
+}
+
+.about-container > h2 {  /* "About The Project" */
+    color: var(--primary);
+    font-size: 1.875rem;
+    margin-bottom: 1.5rem;
+    text-align: left;
+}
+
+.about-container h3 {  /* "Our Team" and other subtitles */
+    color: var(--primary);
+    font-size: 1.875rem;
+    margin-top: 2rem;
+    margin-bottom: 1.5rem;
+    text-align: left;
+}
+
+.content-block h3 {  /* For section subtitles */
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+    text-align: left;
+}
+
+.about-container > p {
+    font-size: 1rem;
+    line-height: 1.75;
+    margin-bottom: 2rem;
+    text-align: left;
+}
+
+/* Ensure content blocks are left-aligned */
+.content-block {
+    text-align: left;
+}
+
+/* Ensure list items are left-aligned */
+.content-block ul li {
+    text-align: left;
+}
