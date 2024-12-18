@@ -88,7 +88,6 @@ body.light-mode .about-container p {
     color: var(--text-light);
 }
 
-/* Rest of your existing CSS remains the same */
 
 
 * {
@@ -460,7 +459,6 @@ textarea {
     margin-left: 0.5rem;
 }
 
-/* Update these styles in your styles.css */
 
 .about-container h2,
 .about-container h3 {
